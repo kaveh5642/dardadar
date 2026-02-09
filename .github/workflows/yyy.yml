@@ -36,15 +36,18 @@ jobs:
 
       - name: Install 3x-ui Panel
         run: |
-          # اجرای اسکریپت با دسترسی کامل روت و تزریق ورودی‌ها
-          curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh | sudo bash <<EOF
-          y
-          admin
-          admin_password
-          2053
-          EOF
+          # دانلود اسکریپت
+          curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh -o install.sh
+          chmod +x install.sh
           
-          # اطمینان از اجرا شدن سرویس
+          # اجرای اسکریپت با ارسال ورودی‌ها به ترتیب:
+          # y (تایید نصب)
+          # admin (یوزرنیم)
+          # admin_password (پسورد)
+          # 2053 (پورت)
+          echo -e "y\nadmin\nadmin_password\n2053\n" | sudo ./install.sh
+          
+          # اطمینان از اجرا
           sudo x-ui restart
 
       - name: Establish SSH Reverse Tunnel
@@ -53,22 +56,26 @@ jobs:
           echo "Connecting to Serveo..."
           echo "--------------------------------------------------------"
           
-          # فوروارد کردن پورت پنل و پورت ریلیتی
-          # پورت 80 سرور Serveo به 2053 رانر (پنل) وصل می‌شود
-          # پورت 443 سرور Serveo به 443 رانر (Reality) وصل می‌شود
-          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
+          # اجرای تونل در پس‌زمینه
+          # پورت 80 سرور Serveo -> پورت 2053 رانر
+          # پورت 443 سرور Serveo -> پورت 443 رانر
+          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
           
-          sleep 15
-          echo "Check the output above for your assigned URL."
+          # زمان دادن برای برقراری تونل و چاپ لاگ‌ها
+          sleep 20
 
       - name: Runner Keep Alive
         run: |
           echo "Runner is active. Status of ports:"
           sudo ss -tulpn | grep -E '2053|443'
           
-          echo "Keep-alive started. This job will run for 6 hours unless stopped."
-          # یک حلقه برای چاپ وضعیت در هر 5 دقیقه تا رانر غیرفعال نشود
+          echo "--------------------------------------------------------"
+          echo "Look at the 'Establish SSH Reverse Tunnel' step logs"
+          echo "to find your public URL (e.g., https://something.serveo.net)"
+          echo "--------------------------------------------------------"
+          
+          # حلقه برای زنده نگه داشتن رانر و چاپ لاگ
           for i in {1..72}; do
-            echo "Still running... (Step $i/72)"
+            echo "Heartbeat: Still running... (Step $i/72)"
             sleep 300
           done
