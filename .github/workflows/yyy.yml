@@ -1,7 +1,7 @@
-name: Shahan Panel 2026 (Docker + Serveo)
+name: Shahan Panel 2026 (Docker + Serveo Fixed)
 
 on:
-  workflow_dispatch: # اجرای دستی از بخش Actions
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -10,10 +10,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install WireGuard and Connectivity Tools
+      - name: Install Network Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y wireguard resolvconf ssh curl docker.io
+          # حذف docker.io از لیست چون در گیت‌هاب از قبل نصب است
+          sudo apt-get install -y wireguard resolvconf ssh curl
 
       - name: Setup WireGuard Config
         run: |
@@ -40,7 +41,7 @@ jobs:
 
       - name: Install Shahan Panel via Docker
         run: |
-          # اجرای پنل شاهان در حالت شبکه Host برای دسترسی مستقیم به پورت‌ها
+          # استفاده از داکر پیش‌فرض گیت‌هاب برای اجرای پنل شاهان
           sudo docker run -d --name shahan --network=host \
             -e ADMIN_USER=admin \
             -e ADMIN_PASS=13691369 \
@@ -53,34 +54,31 @@ jobs:
           echo "Connecting to Serveo for Shahan Panel..."
           echo "--------------------------------------------------------"
           
-          # تولید یک نام مستعار (Alias) تصادفی برای آدرس اینترنتی
+          # تولید نام مستعار (Alias) تصادفی
           RANDOM_ALIAS="shahan$(date +%s%N | cut -c13-20)"
-          echo "Your Public Domain will be: $RANDOM_ALIAS.serveo.net"
+          echo "Your Public Domain: $RANDOM_ALIAS.serveo.net"
           
-          # فوروارد کردن پورت‌ها:
-          # پورت 80 عمومی Serveo -> پورت 8080 رانر (پنل شاهان)
-          # پورت 443 عمومی Serveo -> پورت 443 رانر (مورد نیاز Reality)
+          # فوروارد کردن پورت‌ها به سرور Serveo
+          # پورت 8080 رانر به پورت 80 عمومی
+          # پورت 443 رانر به پورت 443 عمومی
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
             -R $RANDOM_ALIAS:80:localhost:8080 \
             -R $RANDOM_ALIAS:443:localhost:443 \
             serveo.net 2>&1 &
           
           sleep 20
-          echo "Check the logs above to find the exact forwarding URL."
 
       - name: Server Status and Keep Alive
         run: |
           echo "===================================================="
-          echo "Shahan Panel is now LIVE!"
-          echo "Panel URL: Look for 'Forwarding HTTP traffic' in the step above"
-          echo "Default Username: admin"
-          echo "Default Password: 13691369"
-          echo "Reality Port to use: 443"
+          echo "Shahan Panel is Active!"
+          echo "Check the 'Establish SSH' logs for your URL."
+          echo "User: admin | Pass: 13691369"
           echo "===================================================="
           
-          # مانیتورینگ سیستم برای جلوگیری از بسته شدن جاب (حداکثر 6 ساعت)
+          # مانیتورینگ برای زنده نگه داشتن جاب
           for i in {1..72}; do
-            echo "Heartbeat $i: Shahan Panel & Tunnel are active..."
+            echo "Still Alive - Heartbeat $i"
             sudo docker ps | grep shahan
             sleep 300
           done
