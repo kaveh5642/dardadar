@@ -1,4 +1,4 @@
-name: Direct SSH VPN (Fixed Port Edition)
+name: Ultimate X-UI 2026 (Docker + Serveo Fixed)
 
 on:
   workflow_dispatch:
@@ -7,13 +7,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Network Tools
+      - name: Install WireGuard and Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y wireguard resolvconf ssh curl
+          sudo apt-get install -y wireguard resolvconf ssh
 
       - name: Setup WireGuard Config
         run: |
@@ -32,53 +32,51 @@ jobs:
       - name: Start WireGuard
         run: sudo wg-quick up wg0 || true
 
-      - name: Create SSH User (Masoud)
+      - name: Enable BBR Speed Booster
         run: |
-          USER_PASS="13691369"
-          ENCRYPTED_PASS=$(perl -e 'print crypt($ARGV[0], "password")' $USER_PASS)
-          sudo useradd -m -p "$ENCRYPTED_PASS" -s /bin/bash masoud
-          echo "User 'masoud' created."
+          echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
+          sudo sysctl -p
 
-      - name: Configure SSH Server
+      - name: Install 3x-ui Panel via Docker
         run: |
-          sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-          sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-          echo "AllowTcpForwarding yes" | sudo tee -a /etc/ssh/sshd_config
-          echo "TCPKeepAlive yes" | sudo tee -a /etc/ssh/sshd_config
-          sudo systemctl restart ssh
+          sudo docker run -d --name 3x-ui --network=host \
+            -e XRAY_VMESS_AEAD_FORCED=false \
+            -e XUI_USERNAME=admin \
+            -e XUI_PASSWORD=13691369 \
+            -e XUI_PORT=2053 \
+            ghcr.io/mhsanaei/3x-ui:latest
 
-      - name: Establish Fixed TCP Tunnel
+      - name: Establish SSH Public Tunnel
         run: |
           echo "--------------------------------------------------------"
-          # تولید یک پورت تصادفی بین 10000 تا 50000 برای اطمینان از آزاد بودن
-          RANDOM_PORT=$(( ( RANDOM % 40000 )  + 10000 ))
-          echo "TARGET_PORT=$RANDOM_PORT" >> $GITHUB_ENV
-          
-          echo "Connecting to Serveo on Port: $RANDOM_PORT"
+          echo "Connecting to Serveo with Alias..."
           echo "--------------------------------------------------------"
           
-          # فوروارد کردن پورت SSH به پورت تصادفی انتخاب شده
+          # به جای 'myuniquevpn' یک اسم کاملاً تصادفی و خاص بگذارید (فقط حروف و عدد)
+          # این کار محدودیت پورت 443 و 80 را برطرف می‌کند
+          # فرمت: alias:remote_port:local_host:local_port
+          
+          RANDOM_ALIAS="vpn$(date +%s%N | cut -c13-20)"
+          echo "Your Alias is: $RANDOM_ALIAS"
+          
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
-            -R $RANDOM_PORT:localhost:22 serveo.net 2>&1 &
+            -R $RANDOM_ALIAS:80:localhost:2053 \
+            -R $RANDOM_ALIAS:443:localhost:443 \
+            serveo.net &
           
           sleep 15
 
-      - name: Final Connection Details
-        run: |
-          echo "===================================================="
-          echo "🚀 SSH VPN IS READY!"
-          echo "===================================================="
-          echo "SERVER (Host): serveo.net"
-          echo "PORT: ${{ env.TARGET_PORT }}"
-          echo "USERNAME: masoud"
-          echo "PASSWORD: 13691369"
-          echo "===================================================="
-          echo "Configure Netmod with these details."
-          echo "If handshake fails, please run the workflow again to get a new port."
-
       - name: Keep Server Alive
         run: |
+          echo "===================================================="
+          echo "Server is running!"
+          echo "1. Open the URL shown in 'Establish SSH' step"
+          echo "2. Click 'Continue to Site' on the Serveo warning"
+          echo "3. Login with admin / 13691369"
+          echo "===================================================="
           for i in {1..72}; do
-            echo "Heartbeat $i: VPN Server is Active on Port ${{ env.TARGET_PORT }}..."
+            echo "Heartbeat $i: VPN is Active..."
+            sudo docker ps | grep 3x-ui
             sleep 300
           done
