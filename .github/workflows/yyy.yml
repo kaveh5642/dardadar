@@ -1,4 +1,4 @@
-name: Shahan Panel 2026 (Docker + Serveo Fixed)
+name: SSH User Management (HamedAp + Serveo)
 
 on:
   workflow_dispatch:
@@ -13,7 +13,6 @@ jobs:
       - name: Install Network Tools
         run: |
           sudo apt-get update
-          # حذف docker.io از لیست چون در گیت‌هاب از قبل نصب است
           sudo apt-get install -y wireguard resolvconf ssh curl
 
       - name: Setup WireGuard Config
@@ -33,37 +32,32 @@ jobs:
       - name: Start WireGuard
         run: sudo wg-quick up wg0 || true
 
-      - name: Enable BBR Speed Booster
+      - name: Install HamedAp SSH Management
         run: |
-          echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
-          echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
-          sudo sysctl -p
-
-      - name: Install Shahan Panel via Docker
-        run: |
-          # استفاده از داکر پیش‌فرض گیت‌هاب برای اجرای پنل شاهان
-          sudo docker run -d --name shahan --network=host \
-            -e ADMIN_USER=admin \
-            -e ADMIN_PASS=13691369 \
-            -e PANEL_PORT=8080 \
-            hamedap/shahan:latest
+          # اجرای اسکریپت نصب با استفاده از آرگومان‌های احتمالی برای عبور از مراحل تعاملی
+          # توجه: اگر اسکریپت در حین نصب سوالی بپرسد، ما با 'yes' پاسخ می‌دهیم
+          yes | bash <(curl -Ls https://raw.githubusercontent.com/HamedAp/Ssh-User-management/master/install.sh --ipv4)
+          
+          # اطمینان از اینکه سرویس SSH روی پورت 2222 هم گوش می‌دهد
+          # این کار برای جلوگیری از تداخل با SSH اصلی گیت‌هاب است
+          sudo sed -i 's/#Port 22/Port 22\nPort 2222/g' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
 
       - name: Establish SSH Public Tunnel
         run: |
           echo "--------------------------------------------------------"
-          echo "Connecting to Serveo for Shahan Panel..."
+          echo "Connecting to Serveo for SSH Tunneling..."
           echo "--------------------------------------------------------"
           
-          # تولید نام مستعار (Alias) تصادفی
-          RANDOM_ALIAS="shahan$(date +%s%N | cut -c13-20)"
+          RANDOM_ALIAS="ssh-mgr$(date +%s%N | cut -c13-20)"
           echo "Your Public Domain: $RANDOM_ALIAS.serveo.net"
           
-          # فوروارد کردن پورت‌ها به سرور Serveo
-          # پورت 8080 رانر به پورت 80 عمومی
-          # پورت 443 رانر به پورت 443 عمومی
+          # فوروارد کردن:
+          # پورت 443 عمومی Serveo -> به پورت 2222 رانر (SSH Users)
+          # پورت 80 عمومی Serveo -> به پورت 8080 رانر (اگر پنل وب داشته باشد)
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
+            -R $RANDOM_ALIAS:443:localhost:2222 \
             -R $RANDOM_ALIAS:80:localhost:8080 \
-            -R $RANDOM_ALIAS:443:localhost:443 \
             serveo.net 2>&1 &
           
           sleep 20
@@ -71,14 +65,13 @@ jobs:
       - name: Server Status and Keep Alive
         run: |
           echo "===================================================="
-          echo "Shahan Panel is Active!"
-          echo "Check the 'Establish SSH' logs for your URL."
-          echo "User: admin | Pass: 13691369"
+          echo "SSH Management is Active!"
+          echo "Connect via: ssh user@$RANDOM_ALIAS.serveo.net -p 443"
           echo "===================================================="
           
-          # مانیتورینگ برای زنده نگه داشتن جاب
           for i in {1..72}; do
             echo "Still Alive - Heartbeat $i"
-            sudo docker ps | grep shahan
+            # مانیتورینگ وضعیت پورت 2222
+            sudo ss -tulpn | grep 2222 || echo "SSH Service is active"
             sleep 300
           done
