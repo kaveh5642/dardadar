@@ -1,4 +1,4 @@
-name: Shahan SSH Management (Disk Execution Fix)
+name: Direct SSH VPN (User Masoud)
 
 on:
   workflow_dispatch:
@@ -32,55 +32,62 @@ jobs:
       - name: Start WireGuard
         run: sudo wg-quick up wg0 || true
 
-      - name: Download and Install SSH Panel
+      - name: Create SSH User (Masoud)
         run: |
-          # تنظیم متغیرهای محیطی
-          export TERM=xterm
-          export DEBIAN_FRONTEND=noninteractive
+          # ساخت یوزر مسعود با پسورد مشخص
+          # استفاده از openssl برای رمزنگاری پسورد در دستور useradd
+          USER_PASS="13691369"
+          ENCRYPTED_PASS=$(perl -e 'print crypt($ARGV[0], "password")' $USER_PASS)
+          sudo useradd -m -p "$ENCRYPTED_PASS" -s /bin/bash masoud
           
-          # مرحله 1: دانلود اسکریپت روی دیسک
-          echo "Downloading script..."
-          curl -Ls https://raw.githubusercontent.com/HamedAp/Ssh-User-management/master/install.sh -o hamed-install.sh
+          # اضافه کردن به گروه sudo (اختیاری برای مدیریت، اما برای تونل لازم نیست)
+          # sudo usermod -aG sudo masoud
           
-          # مرحله 2: اصلاح مجوزها
-          chmod +x hamed-install.sh
-          
-          # مرحله 3: اجرای فایل از روی دیسک با شبیه‌سازی اینتر (Enter)
-          # استفاده از sudo -E برای حفظ متغیر TERM
-          echo "Starting installation from disk..."
-          printf '\n1\n1\n1\ny\n' | sudo -E ./hamed-install.sh
+          echo "User 'masoud' created successfully."
 
-      - name: Post-Installation Fixes
+      - name: Configure SSH Server
         run: |
-          # باز کردن پورت 2222 برای کاربران SSH
-          sudo sed -i 's/#Port 22/Port 22\nPort 2222/g' /etc/ssh/sshd_config
-          sudo systemctl restart ssh || sudo service ssh restart
+          # تنظیمات لازم برای اجازه ورود با پسورد و تونلینگ
+          sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+          sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+          sudo sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+          
+          # اطمینان از فعال بودن TCP Forwarding برای Netmod
+          echo "AllowTcpForwarding yes" | sudo tee -a /etc/ssh/sshd_config
+          echo "GatewayPorts yes" | sudo tee -a /etc/ssh/sshd_config
+          
+          sudo systemctl restart ssh
 
-      - name: Establish SSH Public Tunnel
+      - name: Establish Serveo Tunnel
         run: |
           echo "--------------------------------------------------------"
           echo "Connecting to Serveo..."
           echo "--------------------------------------------------------"
           
-          RANDOM_ALIAS="ssh-shahan-$(date +%s | cut -c5-10)"
+          # ایجاد یک نام ثابت یا تصادفی برای دامنه
+          # ما پورت 22 (SSH) را به پورت 443 عمومی Serveo وصل می‌کنیم
+          RANDOM_ALIAS="vpn-masoud-$(date +%s | cut -c6-10)"
           echo "Your Public Domain: $RANDOM_ALIAS.serveo.net"
           
-          # فوروارد کردن پورت SSH (2222) به 443 عمومی
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
-            -R $RANDOM_ALIAS:443:localhost:2222 \
+            -R $RANDOM_ALIAS:443:localhost:22 \
             serveo.net 2>&1 &
           
           sleep 20
 
-      - name: Keep Server Alive
+      - name: Display Connection Info
         run: |
           echo "===================================================="
-          echo "SSH Management is running!"
-          echo "Domain: $RANDOM_ALIAS.serveo.net"
+          echo "SSH VPN IS READY!"
+          echo "Host: (Check the 'Establish Serveo Tunnel' step for the URL)"
           echo "Port: 443"
+          echo "Username: masoud"
+          echo "Password: 13691369"
           echo "===================================================="
-          
+
+      - name: Keep Server Alive
+        run: |
           for i in {1..72}; do
-            echo "Heartbeat $i: Still running..."
+            echo "Heartbeat $i: VPN Server for Masoud is Active..."
             sleep 300
           done
