@@ -34,14 +34,16 @@ jobs:
           sudo wg-quick up wg0 || true
           sudo wg show
 
-      - name: Install 3x-ui Panel (Automatic)
+      - name: Install 3x-ui Panel (Force Method)
         run: |
-          # نصب مستقیم با تنظیمات پیش‌فرض بدون پرسش و پاسخ
-          # یوزر: admin | پسورد: admin | پورت: 2053
-          sudo bash -c "$(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)" @ install y admin admin 2053
+          # نصب با تایید اجباری y برای تمام سوالات
+          curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh | sudo DEV_INSTALL=true bash
           
-          # صبر کوتاه برای بالا آمدن دیتابیس پنل
-          sleep 5
+          # تنظیمات دستی یوزر و پسورد و پورت بدون سوال و جواب
+          sudo /usr/local/x-ui/x-ui setting -username admin -password admin_password
+          sudo /usr/local/x-ui/x-ui setting -port 2053
+          
+          # ریستارت برای اعمال تغییرات
           sudo x-ui restart
 
       - name: Establish SSH Reverse Tunnel
@@ -50,9 +52,9 @@ jobs:
           echo "Connecting to Serveo..."
           echo "--------------------------------------------------------"
           
-          # اجرای تونل و چاپ مستقیم خروجی سرویو در لاگ گیت‌هاب
-          # توجه: خروجی در این مرحله آدرس URL را به شما می‌دهد
-          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net 2>&1 &
+          # اجرای تونل
+          # ما از -tt برای شبیه‌سازی ترمینال استفاده می‌کنیم تا لاگ‌ها را بهتر ببینیم
+          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
           
           sleep 20
 
@@ -61,15 +63,14 @@ jobs:
           echo "--- Local Ports Status ---"
           sudo ss -tulpn | grep -E '2053|443'
           
-          echo "--- Check X-UI Status ---"
-          sudo x-ui status || echo "X-ui is running"
-          
           echo "--------------------------------------------------------"
           echo "Keep-alive is active. Check the 'Establish SSH' logs."
           echo "--------------------------------------------------------"
           
-          # مانیتورینگ برای جلوگیری از بسته شدن رانر
+          # جلوگیری از بسته شدن رانر با چاپ مداوم لاگ
           for i in {1..72}; do
             echo "Heartbeat $i: System is up."
+            # بررسی اینکه آیا x-ui هنوز در حال اجراست
+            sudo x-ui status | grep "running" || echo "Checking..."
             sleep 300
           done
