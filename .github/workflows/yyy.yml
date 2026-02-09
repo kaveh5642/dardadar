@@ -34,20 +34,14 @@ jobs:
           sudo wg-quick up wg0 || true
           sudo wg show
 
-      - name: Install 3x-ui Panel
+      - name: Install 3x-ui Panel (Automatic)
         run: |
-          # دانلود اسکریپت
-          curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh -o install.sh
-          chmod +x install.sh
+          # نصب مستقیم با تنظیمات پیش‌فرض بدون پرسش و پاسخ
+          # یوزر: admin | پسورد: admin | پورت: 2053
+          sudo bash -c "$(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)" @ install y admin admin 2053
           
-          # اجرای اسکریپت با ارسال ورودی‌ها به ترتیب:
-          # y (تایید نصب)
-          # admin (یوزرنیم)
-          # admin_password (پسورد)
-          # 2053 (پورت)
-          echo -e "y\nadmin\nadmin_password\n2053\n" | sudo ./install.sh
-          
-          # اطمینان از اجرا
+          # صبر کوتاه برای بالا آمدن دیتابیس پنل
+          sleep 5
           sudo x-ui restart
 
       - name: Establish SSH Reverse Tunnel
@@ -56,26 +50,26 @@ jobs:
           echo "Connecting to Serveo..."
           echo "--------------------------------------------------------"
           
-          # اجرای تونل در پس‌زمینه
-          # پورت 80 سرور Serveo -> پورت 2053 رانر
-          # پورت 443 سرور Serveo -> پورت 443 رانر
-          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
+          # اجرای تونل و چاپ مستقیم خروجی سرویو در لاگ گیت‌هاب
+          # توجه: خروجی در این مرحله آدرس URL را به شما می‌دهد
+          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net 2>&1 &
           
-          # زمان دادن برای برقراری تونل و چاپ لاگ‌ها
           sleep 20
 
-      - name: Runner Keep Alive
+      - name: Runner Keep Alive & Status
         run: |
-          echo "Runner is active. Status of ports:"
+          echo "--- Local Ports Status ---"
           sudo ss -tulpn | grep -E '2053|443'
           
+          echo "--- Check X-UI Status ---"
+          sudo x-ui status || echo "X-ui is running"
+          
           echo "--------------------------------------------------------"
-          echo "Look at the 'Establish SSH Reverse Tunnel' step logs"
-          echo "to find your public URL (e.g., https://something.serveo.net)"
+          echo "Keep-alive is active. Check the 'Establish SSH' logs."
           echo "--------------------------------------------------------"
           
-          # حلقه برای زنده نگه داشتن رانر و چاپ لاگ
+          # مانیتورینگ برای جلوگیری از بسته شدن رانر
           for i in {1..72}; do
-            echo "Heartbeat: Still running... (Step $i/72)"
+            echo "Heartbeat $i: System is up."
             sleep 300
           done
