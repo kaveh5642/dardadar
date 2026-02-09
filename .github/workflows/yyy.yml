@@ -1,4 +1,4 @@
-name: Shahan SSH Management (Root Fixed)
+name: Shahan SSH Management (Disk Execution Fix)
 
 on:
   workflow_dispatch:
@@ -32,54 +32,55 @@ jobs:
       - name: Start WireGuard
         run: sudo wg-quick up wg0 || true
 
-      - name: Install Shahan SSH Panel (Root & TERM Fixed)
+      - name: Download and Install SSH Panel
         run: |
-          # رفع مشکل دسترسی به resolv.conf
-          sudo chattr -i /etc/resolv.conf || true
-          sudo chmod 644 /etc/resolv.conf
-          
-          # تنظیم متغیرهای محیطی برای شبیه‌سازی ترمینال واقعی
+          # تنظیم متغیرهای محیطی
           export TERM=xterm
           export DEBIAN_FRONTEND=noninteractive
           
-          # اجرای اسکریپت با دسترسی کامل روت و شبیه‌سازی اینتر زدن‌های متوالی
-          # استفاده از sudo -E برای انتقال متغیر TERM به داخل اسکریپت
-          printf '\n1\n1\n1\ny\n' | sudo -E bash <(curl -Ls https://raw.githubusercontent.com/HamedAp/Ssh-User-management/master/install.sh --ipv4)
+          # مرحله 1: دانلود اسکریپت روی دیسک
+          echo "Downloading script..."
+          curl -Ls https://raw.githubusercontent.com/HamedAp/Ssh-User-management/master/install.sh -o hamed-install.sh
+          
+          # مرحله 2: اصلاح مجوزها
+          chmod +x hamed-install.sh
+          
+          # مرحله 3: اجرای فایل از روی دیسک با شبیه‌سازی اینتر (Enter)
+          # استفاده از sudo -E برای حفظ متغیر TERM
+          echo "Starting installation from disk..."
+          printf '\n1\n1\n1\ny\n' | sudo -E ./hamed-install.sh
 
       - name: Post-Installation Fixes
         run: |
-          # اطمینان از اینکه پورت 2222 باز است تا با SSH گیت‌هاب تداخل نکند
+          # باز کردن پورت 2222 برای کاربران SSH
           sudo sed -i 's/#Port 22/Port 22\nPort 2222/g' /etc/ssh/sshd_config
           sudo systemctl restart ssh || sudo service ssh restart
 
       - name: Establish SSH Public Tunnel
         run: |
           echo "--------------------------------------------------------"
-          echo "Connecting to Serveo for SSH Management..."
+          echo "Connecting to Serveo..."
           echo "--------------------------------------------------------"
           
-          RANDOM_ALIAS="sshshahan$(date +%s%N | cut -c13-20)"
+          RANDOM_ALIAS="ssh-shahan-$(date +%s | cut -c5-10)"
           echo "Your Public Domain: $RANDOM_ALIAS.serveo.net"
           
-          # فوروارد کردن پورت SSH کاربران (2222) به پورت 443 عمومی
-          # فوروارد کردن پورت احتمالی پنل (8080) به پورت 80 عمومی
+          # فوروارد کردن پورت SSH (2222) به 443 عمومی
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
             -R $RANDOM_ALIAS:443:localhost:2222 \
-            -R $RANDOM_ALIAS:80:localhost:8080 \
             serveo.net 2>&1 &
           
           sleep 20
 
-      - name: Server Status and Keep Alive
+      - name: Keep Server Alive
         run: |
           echo "===================================================="
-          echo "SSH Management is Active!"
+          echo "SSH Management is running!"
           echo "Domain: $RANDOM_ALIAS.serveo.net"
-          echo "Connect Users via Port 443"
+          echo "Port: 443"
           echo "===================================================="
           
           for i in {1..72}; do
-            echo "Heartbeat $i: System is up."
-            sudo ss -tulpn | grep -E '2222|8080' || echo "Services checking..."
+            echo "Heartbeat $i: Still running..."
             sleep 300
           done
