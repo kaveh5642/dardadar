@@ -21,49 +21,54 @@ jobs:
           [Interface]
           PrivateKey = ${{ secrets.SERVEO_WG_PRIVATE_KEY }}
           Address = ${{ secrets.SERVEO_WG_ADDRESS || '10.1.1.2/32' }}
-          # حذف DNS برای جلوگیری از قطع ارتباط رانر
 
           [Peer]
           PublicKey = 7vL9mU/n5W/2X5l5p6yF9f+9L6w4J4f5Z6u7i8o9p0A=
           Endpoint = wireguard.serveo.net:51820
-          # فقط ترافیک داخلی Serveo را از تونل عبور بده تا اینترنت رانر قطع نشود
           AllowedIPs = 10.0.0.0/8
           PersistentKeepalive = 25
           EOF
 
       - name: Start WireGuard Tunnel
         run: |
-          # استفاده از wg-quick با احتیاط
           sudo wg-quick up wg0 || true
           sudo wg show
 
       - name: Install 3x-ui Panel
         run: |
-          # نصب مستقیم پنل
-          bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) <<EOF
+          # اجرای اسکریپت با دسترسی کامل روت و تزریق ورودی‌ها
+          curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh | sudo bash <<EOF
           y
           admin
           admin_password
           2053
           EOF
+          
+          # اطمینان از اجرا شدن سرویس
           sudo x-ui restart
 
       - name: Establish SSH Reverse Tunnel
         run: |
           echo "--------------------------------------------------------"
           echo "Connecting to Serveo..."
-          # استفاده از آپشن -f برای اجرای در پس‌زمینه و -N برای عدم اجرای دستور راه دور
-          # ما پورت 2053 (پنل) را روی پورت 80 سرو می کنیم
-          # و پورت 443 (Reality) را روی پورت 443 سرو می کنیم
-          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
+          echo "--------------------------------------------------------"
           
-          sleep 10
-          echo "If everything went well, Serveo will show your public URL below:"
+          # فوروارد کردن پورت پنل و پورت ریلیتی
+          # پورت 80 سرور Serveo به 2053 رانر (پنل) وصل می‌شود
+          # پورت 443 سرور Serveo به 443 رانر (Reality) وصل می‌شود
+          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
+          
+          sleep 15
+          echo "Check the output above for your assigned URL."
 
       - name: Runner Keep Alive
         run: |
-          echo "Runner is active. Check Serveo logs in the step above for your URL."
-          # نمایش وضعیت پورت های محلی برای اطمینان از نصب x-ui
-          sudo ss -tulpn | grep 2053
-          # بیدار نگه داشتن رانر
-          sleep 21600
+          echo "Runner is active. Status of ports:"
+          sudo ss -tulpn | grep -E '2053|443'
+          
+          echo "Keep-alive started. This job will run for 6 hours unless stopped."
+          # یک حلقه برای چاپ وضعیت در هر 5 دقیقه تا رانر غیرفعال نشود
+          for i in {1..72}; do
+            echo "Still running... (Step $i/72)"
+            sleep 300
+          done
