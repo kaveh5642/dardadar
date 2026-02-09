@@ -1,4 +1,4 @@
-name: Direct SSH VPN (TCP Raw Fix)
+name: Direct SSH VPN (Fixed Port Edition)
 
 on:
   workflow_dispatch:
@@ -34,7 +34,6 @@ jobs:
 
       - name: Create SSH User (Masoud)
         run: |
-          # ساخت یوزر مسعود
           USER_PASS="13691369"
           ENCRYPTED_PASS=$(perl -e 'print crypt($ARGV[0], "password")' $USER_PASS)
           sudo useradd -m -p "$ENCRYPTED_PASS" -s /bin/bash masoud
@@ -42,38 +41,44 @@ jobs:
 
       - name: Configure SSH Server
         run: |
-          # تنظیمات نهایی برای پایداری تونل
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
           sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' /etc/ssh/sshd_config
           echo "AllowTcpForwarding yes" | sudo tee -a /etc/ssh/sshd_config
           echo "TCPKeepAlive yes" | sudo tee -a /etc/ssh/sshd_config
           sudo systemctl restart ssh
 
-      - name: Establish Raw TCP Tunnel
+      - name: Establish Fixed TCP Tunnel
         run: |
           echo "--------------------------------------------------------"
-          echo "Connecting to Serveo (TCP Mode)..."
+          # تولید یک پورت تصادفی بین 10000 تا 50000 برای اطمینان از آزاد بودن
+          RANDOM_PORT=$(( ( RANDOM % 40000 )  + 10000 ))
+          echo "TARGET_PORT=$RANDOM_PORT" >> $GITHUB_ENV
+          
+          echo "Connecting to Serveo on Port: $RANDOM_PORT"
           echo "--------------------------------------------------------"
           
-          # استفاده از پورت 0 برای اینکه Serveo خودش یک پورت تصادفی به ما بدهد
-          # این پورت تداخل پروتکل ندارد و دیتای SSH را سالم منتقل می‌کند
+          # فوروارد کردن پورت SSH به پورت تصادفی انتخاب شده
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
-            -R 0:localhost:22 serveo.net 2>&1 &
+            -R $RANDOM_PORT:localhost:22 serveo.net 2>&1 &
           
           sleep 15
-          echo "Check the logs above for 'Forwarding TCP traffic from serveo.net:XXXXX'"
 
-      - name: Display Info
+      - name: Final Connection Details
         run: |
           echo "===================================================="
-          echo "IMPORTANT: In Netmod, use 'serveo.net' as Host"
-          echo "and use the Port number given in the previous step."
-          echo "User: masoud | Pass: 13691369"
+          echo "🚀 SSH VPN IS READY!"
           echo "===================================================="
+          echo "SERVER (Host): serveo.net"
+          echo "PORT: ${{ env.TARGET_PORT }}"
+          echo "USERNAME: masoud"
+          echo "PASSWORD: 13691369"
+          echo "===================================================="
+          echo "Configure Netmod with these details."
+          echo "If handshake fails, please run the workflow again to get a new port."
 
       - name: Keep Server Alive
         run: |
           for i in {1..72}; do
-            echo "Heartbeat $i: VPN Active..."
+            echo "Heartbeat $i: VPN Server is Active on Port ${{ env.TARGET_PORT }}..."
             sleep 300
           done
