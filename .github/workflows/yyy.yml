@@ -1,19 +1,19 @@
-name: Ultimate X-UI 2026 (Docker + Serveo)
+name: Shahan Panel 2026 (Docker + Serveo)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # اجرای دستی از بخش Actions
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install WireGuard and Tools
+      - name: Install WireGuard and Connectivity Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y wireguard resolvconf ssh
+          sudo apt-get install -y wireguard resolvconf ssh curl docker.io
 
       - name: Setup WireGuard Config
         run: |
@@ -38,39 +38,49 @@ jobs:
           echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
           sudo sysctl -p
 
-      - name: Install 3x-ui Panel via Docker
+      - name: Install Shahan Panel via Docker
         run: |
-          # اجرای پنل در داکر - یوزر و پسورد طبق الگوی شما تنظیم شد
-          sudo docker run -d --name 3x-ui --network=host \
-            -e XRAY_VMESS_AEAD_FORCED=false \
-            -e XUI_USERNAME=admin \
-            -e XUI_PASSWORD=13691369 \
-            -e XUI_PORT=2053 \
-            ghcr.io/mhsanaei/3x-ui:latest
+          # اجرای پنل شاهان در حالت شبکه Host برای دسترسی مستقیم به پورت‌ها
+          sudo docker run -d --name shahan --network=host \
+            -e ADMIN_USER=admin \
+            -e ADMIN_PASS=13691369 \
+            -e PANEL_PORT=8080 \
+            hamedap/shahan:latest
 
       - name: Establish SSH Public Tunnel
         run: |
           echo "--------------------------------------------------------"
-          echo "Connecting to Serveo for Public Access..."
+          echo "Connecting to Serveo for Shahan Panel..."
           echo "--------------------------------------------------------"
-          # فوروارد کردن پورت پنل به پورت 80 و پورت Reality به 443
-          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
           
-          sleep 15
-          echo "Check the logs of this step to find your assigned .serveo.net URL"
+          # تولید یک نام مستعار (Alias) تصادفی برای آدرس اینترنتی
+          RANDOM_ALIAS="shahan$(date +%s%N | cut -c13-20)"
+          echo "Your Public Domain will be: $RANDOM_ALIAS.serveo.net"
+          
+          # فوروارد کردن پورت‌ها:
+          # پورت 80 عمومی Serveo -> پورت 8080 رانر (پنل شاهان)
+          # پورت 443 عمومی Serveo -> پورت 443 رانر (مورد نیاز Reality)
+          sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
+            -R $RANDOM_ALIAS:80:localhost:8080 \
+            -R $RANDOM_ALIAS:443:localhost:443 \
+            serveo.net 2>&1 &
+          
+          sleep 20
+          echo "Check the logs above to find the exact forwarding URL."
 
-      - name: Keep Server Alive
+      - name: Server Status and Keep Alive
         run: |
           echo "===================================================="
-          echo "Server Started Successfully!"
-          echo "Username: admin"
-          echo "Password: 13691369"
-          echo "Panel Port: 80 (via Serveo URL)"
-          echo "Reality Port: 443 (via Serveo URL)"
+          echo "Shahan Panel is now LIVE!"
+          echo "Panel URL: Look for 'Forwarding HTTP traffic' in the step above"
+          echo "Default Username: admin"
+          echo "Default Password: 13691369"
+          echo "Reality Port to use: 443"
           echo "===================================================="
-          # حلقه برای باز نگه داشتن رانر به مدت 6 ساعت
+          
+          # مانیتورینگ سیستم برای جلوگیری از بسته شدن جاب (حداکثر 6 ساعت)
           for i in {1..72}; do
-            echo "Heartbeat $i: VPN is Active..."
-            sudo docker ps | grep 3x-ui
+            echo "Heartbeat $i: Shahan Panel & Tunnel are active..."
+            sudo docker ps | grep shahan
             sleep 300
           done
