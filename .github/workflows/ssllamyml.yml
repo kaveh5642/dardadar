@@ -1,0 +1,77 @@
+name: X-UI with Serveo WireGuard Tunnel
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  deploy-and-tunnel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install WireGuard and Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard resolvconf curl ssh
+
+      - name: Setup WireGuard Config
+        run: |
+          # ایجاد فایل کانفیگ با استفاده از مقادیر دریافتی یا پیش‌فرض
+          cat <<EOF | sudo tee /etc/wireguard/wg0.conf
+          [Interface]
+          PrivateKey = ${{ secrets.SERVEO_WG_PRIVATE_KEY }}
+          Address = ${{ secrets.SERVEO_WG_ADDRESS || '10.1.1.2/32' }}
+          DNS = 1.1.1.1
+
+          [Peer]
+          PublicKey = ${{ secrets.SERVEO_WG_PEER_PUBKEY || '7vL9mU/n5W/2X5l5p6yF9f+9L6w4J4f5Z6u7i8o9p0A=' }}
+          Endpoint = ${{ secrets.SERVEO_WG_ENDPOINT || 'wireguard.serveo.net:51820' }}
+          AllowedIPs = 0.0.0.0/0
+          PersistentKeepalive = 25
+          EOF
+
+      - name: Start WireGuard Tunnel
+        run: |
+          # تلاش برای بالا آوردن تونل
+          sudo wg-quick up wg0 || echo "WireGuard might have some issues, checking status..."
+          sudo wg show
+
+      - name: Install 3x-ui Panel
+        run: |
+          # نصب پنل با تنظیمات پیش‌فرض (User: admin, Pass: admin_password)
+          bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) <<EOF
+          y
+          admin
+          admin_password
+          2053
+          EOF
+          sudo x-ui restart
+
+      - name: Establish SSH Reverse Tunnel via Serveo
+        run: |
+          echo "--------------------------------------------------------"
+          echo "Attempting to expose ports via Serveo..."
+          echo "--------------------------------------------------------"
+          
+          # فوروارد کردن پورت پنل (2053) به پورت 80 عمومی Serveo
+          # و پورت Reality (443) به پورت 443 عمومی Serveo
+          # از -o ServerAliveInterval برای جلوگیری از قطع شدن SSH استفاده می‌کنیم
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
+          
+          # استراحت کوتاه برای برقراری اتصال
+          sleep 10
+
+      - name: Show Connection Info and Keep Alive
+        run: |
+          echo "!!! IMPORTANT !!!"
+          echo "Check the logs above for your assigned Serveo domain."
+          echo "If you didn't specify a subdomain, Serveo will give you a random one."
+          echo "Use 'curl -s localhost:2053' to check if x-ui is localy up."
+          
+          # نمایش وضعیت پورت‌ها
+          sudo ss -tulpn
+          
+          # زنده نگه داشتن رانر برای 6 ساعت
+          echo "Runner is now active and tunneling. Do not cancel this job."
+          sleep 21600
