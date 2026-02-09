@@ -1,19 +1,19 @@
-name: X-UI with Serveo WireGuard Tunnel
+name: Ultimate X-UI 2026 (Docker + Serveo)
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
-  deploy-and-tunnel:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install WireGuard and Dependencies
+      - name: Install WireGuard and Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y wireguard resolvconf curl ssh
+          sudo apt-get install -y wireguard resolvconf ssh
 
       - name: Setup WireGuard Config
         run: |
@@ -29,48 +29,48 @@ jobs:
           PersistentKeepalive = 25
           EOF
 
-      - name: Start WireGuard Tunnel
-        run: |
-          sudo wg-quick up wg0 || true
-          sudo wg show
+      - name: Start WireGuard
+        run: sudo wg-quick up wg0 || true
 
-      - name: Install 3x-ui Panel (Force Method)
+      - name: Enable BBR Speed Booster
         run: |
-          # نصب با تایید اجباری y برای تمام سوالات
-          curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh | sudo DEV_INSTALL=true bash
-          
-          # تنظیمات دستی یوزر و پسورد و پورت بدون سوال و جواب
-          sudo /usr/local/x-ui/x-ui setting -username admin -password admin_password
-          sudo /usr/local/x-ui/x-ui setting -port 2053
-          
-          # ریستارت برای اعمال تغییرات
-          sudo x-ui restart
+          echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
+          sudo sysctl -p
 
-      - name: Establish SSH Reverse Tunnel
+      - name: Install 3x-ui Panel via Docker
+        run: |
+          # اجرای پنل در داکر - یوزر و پسورد طبق الگوی شما تنظیم شد
+          sudo docker run -d --name 3x-ui --network=host \
+            -e XRAY_VMESS_AEAD_FORCED=false \
+            -e XUI_USERNAME=admin \
+            -e XUI_PASSWORD=13691369 \
+            -e XUI_PORT=2053 \
+            ghcr.io/mhsanaei/3x-ui:latest
+
+      - name: Establish SSH Public Tunnel
         run: |
           echo "--------------------------------------------------------"
-          echo "Connecting to Serveo..."
+          echo "Connecting to Serveo for Public Access..."
           echo "--------------------------------------------------------"
-          
-          # اجرای تونل
-          # ما از -tt برای شبیه‌سازی ترمینال استفاده می‌کنیم تا لاگ‌ها را بهتر ببینیم
+          # فوروارد کردن پورت پنل به پورت 80 و پورت Reality به 443
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:2053 -R 443:localhost:443 serveo.net &
           
-          sleep 20
+          sleep 15
+          echo "Check the logs of this step to find your assigned .serveo.net URL"
 
-      - name: Runner Keep Alive & Status
+      - name: Keep Server Alive
         run: |
-          echo "--- Local Ports Status ---"
-          sudo ss -tulpn | grep -E '2053|443'
-          
-          echo "--------------------------------------------------------"
-          echo "Keep-alive is active. Check the 'Establish SSH' logs."
-          echo "--------------------------------------------------------"
-          
-          # جلوگیری از بسته شدن رانر با چاپ مداوم لاگ
+          echo "===================================================="
+          echo "Server Started Successfully!"
+          echo "Username: admin"
+          echo "Password: 13691369"
+          echo "Panel Port: 80 (via Serveo URL)"
+          echo "Reality Port: 443 (via Serveo URL)"
+          echo "===================================================="
+          # حلقه برای باز نگه داشتن رانر به مدت 6 ساعت
           for i in {1..72}; do
-            echo "Heartbeat $i: System is up."
-            # بررسی اینکه آیا x-ui هنوز در حال اجراست
-            sudo x-ui status | grep "running" || echo "Checking..."
+            echo "Heartbeat $i: VPN is Active..."
+            sudo docker ps | grep 3x-ui
             sleep 300
           done
