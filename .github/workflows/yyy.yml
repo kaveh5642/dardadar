@@ -1,4 +1,4 @@
-name: Direct SSH VPN (User Masoud)
+name: Direct SSH VPN (TCP Raw Fix)
 
 on:
   workflow_dispatch:
@@ -34,60 +34,46 @@ jobs:
 
       - name: Create SSH User (Masoud)
         run: |
-          # ساخت یوزر مسعود با پسورد مشخص
-          # استفاده از openssl برای رمزنگاری پسورد در دستور useradd
+          # ساخت یوزر مسعود
           USER_PASS="13691369"
           ENCRYPTED_PASS=$(perl -e 'print crypt($ARGV[0], "password")' $USER_PASS)
           sudo useradd -m -p "$ENCRYPTED_PASS" -s /bin/bash masoud
-          
-          # اضافه کردن به گروه sudo (اختیاری برای مدیریت، اما برای تونل لازم نیست)
-          # sudo usermod -aG sudo masoud
-          
-          echo "User 'masoud' created successfully."
+          echo "User 'masoud' created."
 
       - name: Configure SSH Server
         run: |
-          # تنظیمات لازم برای اجازه ورود با پسورد و تونلینگ
+          # تنظیمات نهایی برای پایداری تونل
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
           sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-          sudo sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
-          
-          # اطمینان از فعال بودن TCP Forwarding برای Netmod
           echo "AllowTcpForwarding yes" | sudo tee -a /etc/ssh/sshd_config
-          echo "GatewayPorts yes" | sudo tee -a /etc/ssh/sshd_config
-          
+          echo "TCPKeepAlive yes" | sudo tee -a /etc/ssh/sshd_config
           sudo systemctl restart ssh
 
-      - name: Establish Serveo Tunnel
+      - name: Establish Raw TCP Tunnel
         run: |
           echo "--------------------------------------------------------"
-          echo "Connecting to Serveo..."
+          echo "Connecting to Serveo (TCP Mode)..."
           echo "--------------------------------------------------------"
           
-          # ایجاد یک نام ثابت یا تصادفی برای دامنه
-          # ما پورت 22 (SSH) را به پورت 443 عمومی Serveo وصل می‌کنیم
-          RANDOM_ALIAS="vpn-masoud-$(date +%s | cut -c6-10)"
-          echo "Your Public Domain: $RANDOM_ALIAS.serveo.net"
-          
+          # استفاده از پورت 0 برای اینکه Serveo خودش یک پورت تصادفی به ما بدهد
+          # این پورت تداخل پروتکل ندارد و دیتای SSH را سالم منتقل می‌کند
           sudo ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
-            -R $RANDOM_ALIAS:443:localhost:22 \
-            serveo.net 2>&1 &
+            -R 0:localhost:22 serveo.net 2>&1 &
           
-          sleep 20
+          sleep 15
+          echo "Check the logs above for 'Forwarding TCP traffic from serveo.net:XXXXX'"
 
-      - name: Display Connection Info
+      - name: Display Info
         run: |
           echo "===================================================="
-          echo "SSH VPN IS READY!"
-          echo "Host: (Check the 'Establish Serveo Tunnel' step for the URL)"
-          echo "Port: 443"
-          echo "Username: masoud"
-          echo "Password: 13691369"
+          echo "IMPORTANT: In Netmod, use 'serveo.net' as Host"
+          echo "and use the Port number given in the previous step."
+          echo "User: masoud | Pass: 13691369"
           echo "===================================================="
 
       - name: Keep Server Alive
         run: |
           for i in {1..72}; do
-            echo "Heartbeat $i: VPN Server for Masoud is Active..."
+            echo "Heartbeat $i: VPN Active..."
             sleep 300
           done
