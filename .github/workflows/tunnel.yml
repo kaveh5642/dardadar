@@ -1,4 +1,4 @@
-name: Ultimate Ephemeral VPN 2026
+name: Ultimate Ephemeral VPN 2026 (Fixed & Sudo)
 on:
   workflow_dispatch:
 
@@ -14,22 +14,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq curl wget openssl
 
-      - name: Install Xray-core (Fixed Root Issue)
+      - name: Install Xray-core
         run: |
-          # دانلود و اجرای اسکریپت نصب با دسترسی sudo
+          # نصب هسته اصلی با دسترسی روت
           curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install -u root
 
-      - name: Install Cloudflared
+      - name: Install Cloudflared (Fixed Filename)
         run: |
-          wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          # دانلود با نام مشخص برای جلوگیری از خطای پیدا نشدن فایل
+          wget -O cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared.deb
 
       - name: Generate Reality Keys & Config
         id: vars
         run: |
-          # استفاده از مسیر کامل برای اطمینان از دسترسی به xray
-          UUID=$(/usr/local/bin/xray uuid)
-          KEYS=$(/usr/local/bin/xray x25519)
+          # تولید کلیدها و شناسه با sudo
+          UUID=$(sudo /usr/local/bin/xray uuid)
+          KEYS=$(sudo /usr/local/bin/xray x25519)
           PRIVATE_KEY=$(echo $KEYS | awk '{print $3}')
           PUBLIC_KEY=$(echo $KEYS | awk '{print $6}')
           SHORT_ID=$(openssl rand -hex 8)
@@ -38,7 +39,8 @@ jobs:
           echo "pub=$PUBLIC_KEY" >> $GITHUB_OUTPUT
           echo "sid=$SHORT_ID" >> $GITHUB_OUTPUT
           
-          cat <<EOF > config.json
+          # ایجاد فایل کانفیگ سرور
+          sudo cat <<EOF > config.json
           {
             "log": { "loglevel": "warning" },
             "inbounds":,
@@ -70,50 +72,45 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          # اجرای تونل و کپچر کردن URL موقت
-          # استفاده از --url برای هدایت ترافیک به پورت داخلی xray
-          cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
+          # اجرای تانل با sudo و هدایت به پورت xray
+          sudo cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
           
-          echo "در حال برقراری اتصال با کلودفلر..."
-          sleep 20
+          echo "در حال دریافت آدرس از کلودفلر..."
+          sleep 25
           
-          # استخراج آدرس TryCloudflare از لاگ
+          # استخراج آدرس موقت از فایل لاگ
           TUNNEL_URL=$(grep -o 'https://.*\.trycloudflare.com' cf.log | head -n 1 | sed 's/https:\/\///')
           
           if; then
-            echo "خطا در دریافت URL! محتوای لاگ:"
+            echo "خطا در برقراری تانل! لاگ نهایی:"
             cat cf.log
             exit 1
           fi
           
           echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
 
-      - name: Generate Final Config Link
+      - name: Final Configuration Output
         run: |
           UUID="${{ steps.vars.outputs.uuid }}"
           DOMAIN="${{ steps.tunnel.outputs.url }}"
           PUB_KEY="${{ steps.vars.outputs.pub }}"
           SHORT_ID="${{ steps.vars.outputs.sid }}"
           
-          # ساخت لینک VLESS با متدهای ضد شناسایی سال 2026
-          # پارامترهای sni و fp برای شبیه‌سازی ترافیک عادی ضروری هستند
+          # لینک VLESS نهایی با پارامترهای ضد فیلترینگ
           VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=reality&sni=www.google.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp&headerType=none&flow=xtls-rprx-vision#Runner-VPN-$(date +%H%M)"
           
           echo "========================================================="
-          echo "لینک اتصال نهایی (آماده استفاده):"
+          echo "لینک اتصال شما (در v2rayNG یا Nekobox کپی کنید):"
           echo ""
           echo "$VLESS_LINK"
           echo ""
-          echo "نکته مهم برای ایران ۲۰۲۶:"
-          echo "در اپلیکیشن کلاینت (مثل v2rayNG)، حتماً Fragment را فعال کنید."
-          echo "تنظیمات پیشنهادی Fragment:"
-          echo "Packets: tlshello | Length: 100-200 | Interval: 10-20"
+          echo "نکته مهم: در تنظیمات کلاینت، قابلیت Fragmentation را فعال کنید."
           echo "========================================================="
 
       - name: Keep Runner Alive
         run: |
-          echo "VPN تا ۶ ساعت آینده فعال است. برای بستن، Workflow را Cancel کنید."
+          echo "سرور به مدت ۶ ساعت فعال است."
           for i in {1..72}; do
-            echo "وضعیت: اتصال برقرار است (Heartbeat $i)"
+            echo "Heartbeat $i: Connection Active..."
             sleep 300
           done
