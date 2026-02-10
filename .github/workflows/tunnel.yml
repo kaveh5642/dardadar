@@ -1,4 +1,4 @@
-name: Ultimate Ephemeral VPN 2026 (Working Version)
+name: Iran VPN - LocalTunnel (Free)
 on:
   workflow_dispatch:
 
@@ -9,121 +9,80 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install System Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl wget openssl
-
-      - name: Install Xray-core
+      - name: Install Dependencies
         run: |
           curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install -u root
+          sudo npm install -g localtunnel
 
-      - name: Install Cloudflared
-        run: |
-          sudo wget -q -O /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          sudo chmod +x /usr/local/bin/cloudflared
-          cloudflared --version
-
-      - name: Generate Config & Keys
+      - name: Generate Config
         id: vars
         run: |
           UUID=$(/usr/local/bin/xray uuid)
           echo "uuid=$UUID" >> $GITHUB_OUTPUT
           
-          # کانفیگ VLESS-WebSocket (سازگار با Cloudflare Tunnel)
           cat <<EOF > config.json
           {
-            "log": { "loglevel": "warning" },
+            "log": {"loglevel": "warning"},
             "inbounds": [{
               "port": 8080,
               "protocol": "vless",
               "settings": {
-                "clients": [{
-                  "id": "$UUID",
-                  "level": 0
-                }],
+                "clients": [{"id": "$UUID"}],
                 "decryption": "none"
               },
               "streamSettings": {
                 "network": "ws",
-                "wsSettings": {
-                  "path": "/vless"
-                }
+                "wsSettings": {"path": "/vless"}
               }
             }],
-            "outbounds": [{ 
-              "protocol": "freedom",
-              "settings": {}
-            }]
+            "outbounds": [{"protocol": "freedom"}]
           }
           EOF
-          
-          cat config.json
 
-      - name: Start Xray Server
+      - name: Start Xray
         run: |
           sudo /usr/local/bin/xray run -c config.json &
-          sleep 5
-          echo "Xray started, checking process..."
-          ps aux | grep xray
+          sleep 3
 
-      - name: Establish Argo Tunnel
+      - name: Start LocalTunnel
         id: tunnel
         run: |
-          sudo /usr/local/bin/cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
+          lt --port 8080 > lt.log 2>&1 &
           
-          echo "Waiting for Cloudflare URL..."
-          TUNNEL_URL=""
-          for i in {1..40}; do
-            TUNNEL_URL=$(grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' cf.log | head -n 1)
-            if [ -n "$TUNNEL_URL" ]; then
-              CLEAN_URL=$(echo $TUNNEL_URL | sed 's/https:\/\///')
-              echo "url=$CLEAN_URL" >> $GITHUB_OUTPUT
-              echo "✅ Tunnel Active: $TUNNEL_URL"
+          echo "⏳ Getting tunnel URL..."
+          for i in {1..30}; do
+            LT_URL=$(grep -o 'https://.*\.loca\.lt' lt.log | head -1)
+            if [ -n "$LT_URL" ]; then
+              DOMAIN=$(echo $LT_URL | sed 's|https://||')
+              echo "domain=$DOMAIN" >> $GITHUB_OUTPUT
+              echo "✅ Tunnel: $LT_URL"
               break
             fi
-            sleep 1
+            sleep 2
           done
 
-          if [ -z "$TUNNEL_URL" ]; then
-            echo "❌ Tunnel failed! Logs:"
-            cat cf.log
-            exit 1
-          fi
-
-      - name: Output VLESS Link
+      - name: Output Config
         run: |
           UUID="${{ steps.vars.outputs.uuid }}"
-          DOMAIN="${{ steps.tunnel.outputs.url }}"
+          DOMAIN="${{ steps.tunnel.outputs.domain }}"
           
-          # لینک VLESS-WebSocket-TLS
-          VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=tls&sni=$DOMAIN&alpn=http/1.1&fp=chrome&type=ws&host=$DOMAIN&path=%2Fvless#GitHub_VPN_2026"
+          LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=tls&sni=$DOMAIN&type=ws&host=$DOMAIN&path=%2Fvless#Iran_LocalTunnel"
           
           echo "========================================================="
-          echo "✅ VPN آماده است!"
+          echo "🇮🇷 VPN رایگان کامل - بدون نیاز به ثبت‌نام"
           echo ""
-          echo "📋 لینک کانفیگ:"
-          echo "$VLESS_LINK"
+          echo "📋 لینک:"
+          echo "$LINK"
           echo ""
-          echo "🔧 تنظیمات دستی (اگر لینک کار نکرد):"
-          echo "Address: $DOMAIN"
-          echo "Port: 443"
-          echo "UUID: $UUID"
-          echo "Network: WebSocket"
-          echo "Path: /vless"
-          echo "TLS: ON"
-          echo "SNI: $DOMAIN"
+          echo "⚠️ نکته مهم LocalTunnel:"
+          echo "اولین بار که وصل میشی، یه صفحه وب باز میشه"
+          echo "روی دکمه 'Click to Continue' بزن"
+          echo "بعدش VPN وصل میشه"
           echo ""
-          echo "📱 اپلیکیشن‌های پیشنهادی:"
-          echo "- Android: v2rayNG, NekoBox"
-          echo "- iOS: Shadowrocket, Streisand"
-          echo "- Windows: v2rayN, Nekoray"
+          echo "🔧 Fragment را فعال کن!"
           echo "========================================================="
 
-      - name: Keep Alive (6 hours)
+      - name: Keep Alive
         run: |
-          echo "🟢 VPN فعال شد - تا 6 ساعت قابل استفاده است"
-          for i in {1..72}; do
-            sleep 300
-            echo "⏱️ Uptime: $((i*5)) minutes"
-          done
+          echo "🟢 Running..."
+          while true; do sleep 300; echo "⏱️ Still alive"; done
