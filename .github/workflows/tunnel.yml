@@ -1,4 +1,4 @@
-name: Iran VPN - LocalTunnel (Free)
+name: SSH VPN - LocalTunnel (Simple & Fast)
 on:
   workflow_dispatch:
 
@@ -6,83 +6,131 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
+      - name: Setup SSH Server
         run: |
-          curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install -u root
+          # فعال‌سازی SSH با تنظیمات امن
+          sudo systemctl start ssh
+          sudo systemctl enable ssh
+          
+          # ساخت یوزر vpn با پسورد قوی
+          VPN_PASS=$(openssl rand -base64 16)
+          echo "vpnuser:$VPN_PASS" | sudo chpasswd
+          sudo useradd -m -s /bin/bash vpnuser 2>/dev/null || true
+          echo "vpnuser:$VPN_PASS" | sudo chpasswd
+          
+          # تنظیمات SSH برای تونل
+          sudo tee -a /etc/ssh/sshd_config > /dev/null <<EOF
+          
+          # VPN Tunnel Settings
+          PermitTunnel yes
+          GatewayPorts yes
+          AllowTcpForwarding yes
+          PasswordAuthentication yes
+          EOF
+          
+          sudo systemctl restart ssh
+          
+          # ذخیره پسورد برای step بعدی
+          echo "PASS=$VPN_PASS" >> $GITHUB_ENV
+
+      - name: Install LocalTunnel
+        run: |
           sudo npm install -g localtunnel
 
-      - name: Generate Config
-        id: vars
-        run: |
-          UUID=$(/usr/local/bin/xray uuid)
-          echo "uuid=$UUID" >> $GITHUB_OUTPUT
-          
-          cat <<EOF > config.json
-          {
-            "log": {"loglevel": "warning"},
-            "inbounds": [{
-              "port": 8080,
-              "protocol": "vless",
-              "settings": {
-                "clients": [{"id": "$UUID"}],
-                "decryption": "none"
-              },
-              "streamSettings": {
-                "network": "ws",
-                "wsSettings": {"path": "/vless"}
-              }
-            }],
-            "outbounds": [{"protocol": "freedom"}]
-          }
-          EOF
-
-      - name: Start Xray
-        run: |
-          sudo /usr/local/bin/xray run -c config.json &
-          sleep 3
-
-      - name: Start LocalTunnel
+      - name: Start SSH Tunnel via LocalTunnel
         id: tunnel
         run: |
-          lt --port 8080 > lt.log 2>&1 &
+          # تونل SSH روی پورت 22
+          lt --port 22 --subdomain iran-ssh-vpn-$RANDOM > lt.log 2>&1 &
           
-          echo "⏳ Getting tunnel URL..."
-          for i in {1..30}; do
-            LT_URL=$(grep -o 'https://.*\.loca\.lt' lt.log | head -1)
-            if [ -n "$LT_URL" ]; then
-              DOMAIN=$(echo $LT_URL | sed 's|https://||')
+          echo "⏳ Waiting for tunnel..."
+          for i in {1..40}; do
+            TUNNEL=$(grep -o 'https://[^[:space:]]*\.loca\.lt' lt.log | head -1)
+            if [ -n "$TUNNEL" ]; then
+              # استخراج دامنه و پورت
+              DOMAIN=$(echo $TUNNEL | sed 's|https://||')
+              
               echo "domain=$DOMAIN" >> $GITHUB_OUTPUT
-              echo "✅ Tunnel: $LT_URL"
+              echo "✅ SSH Tunnel Ready: $TUNNEL"
               break
             fi
             sleep 2
           done
+          
+          if [ -z "$TUNNEL" ]; then
+            echo "❌ Failed! Log:"
+            cat lt.log
+            exit 1
+          fi
 
-      - name: Output Config
+      - name: Display Connection Info
         run: |
-          UUID="${{ steps.vars.outputs.uuid }}"
           DOMAIN="${{ steps.tunnel.outputs.domain }}"
-          
-          LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=tls&sni=$DOMAIN&type=ws&host=$DOMAIN&path=%2Fvless#Iran_LocalTunnel"
+          PASS="${{ env.PASS }}"
           
           echo "========================================================="
-          echo "🇮🇷 VPN رایگان کامل - بدون نیاز به ثبت‌نام"
+          echo "🇮🇷 SSH VPN آماده است!"
           echo ""
-          echo "📋 لینک:"
-          echo "$LINK"
+          echo "📋 مشخصات اتصال:"
+          echo "Host: $DOMAIN"
+          echo "Port: 443"
+          echo "Username: vpnuser"
+          echo "Password: $PASS"
           echo ""
-          echo "⚠️ نکته مهم LocalTunnel:"
-          echo "اولین بار که وصل میشی، یه صفحه وب باز میشه"
-          echo "روی دکمه 'Click to Continue' بزن"
-          echo "بعدش VPN وصل میشه"
+          echo "========================================================="
+          echo "📱 نحوه استفاده در اندروید:"
           echo ""
-          echo "🔧 Fragment را فعال کن!"
+          echo "1️⃣ نصب HTTP Injector یا v2rayNG"
+          echo ""
+          echo "2️⃣ HTTP Injector:"
+          echo "   - SSH Settings:"
+          echo "     Host: $DOMAIN"
+          echo "     Port: 443"
+          echo "     Username: vpnuser"
+          echo "     Password: $PASS"
+          echo "   - Payload: زیر را کپی کن ↓"
+          echo ""
+          echo "GET / HTTP/1.1[crlf]Host: $DOMAIN[crlf]Upgrade: websocket[crlf][crlf]"
+          echo ""
+          echo "3️⃣ یا استفاده مستقیم SSH Tunnel:"
+          echo "   نصب اپلیکیشن 'SSH Tunnel' از پلی استور"
+          echo "   تنظیمات:"
+          echo "   - Remote: $DOMAIN:443"
+          echo "   - Username: vpnuser"  
+          echo "   - Password: $PASS"
+          echo "   - Local Port: 1080 (SOCKS5)"
+          echo ""
+          echo "========================================================="
+          echo "💻 استفاده در ویندوز/لینوکس/مک:"
+          echo ""
+          echo "دستور SSH Tunnel:"
+          echo "ssh -D 1080 -N vpnuser@$DOMAIN -p 443"
+          echo ""
+          echo "بعد SOCKS5 proxy رو تنظیم کن:"
+          echo "127.0.0.1:1080"
+          echo ""
+          echo "========================================================="
+          echo "🌐 استفاده در تلگرام:"
+          echo ""
+          echo "Settings > Data and Storage > Proxy Settings"
+          echo "Type: SOCKS5"
+          echo "Server: 127.0.0.1"
+          echo "Port: 1080"
           echo "========================================================="
 
-      - name: Keep Alive
+      - name: Keep Alive (6 hours)
         run: |
-          echo "🟢 Running..."
-          while true; do sleep 300; echo "⏱️ Still alive"; done
+          echo "🟢 SSH VPN is Running..."
+          echo "⏱️ Runtime: 6 hours"
+          
+          for i in {1..360}; do
+            sleep 60
+            
+            # نمایش وضعیت هر 10 دقیقه
+            if [ $((i % 10)) -eq 0 ]; then
+              ACTIVE=$(who | wc -l)
+              echo "⏱️ Uptime: $i min | Active connections: $ACTIVE"
+            fi
+          done
+          
+          echo "⏹️ Session Expired - Run workflow again for new connection"
