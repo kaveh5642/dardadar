@@ -1,4 +1,4 @@
-name: Ultimate Ephemeral VPN 2026 (Resilient Mode)
+name: Ultimate Ephemeral VPN 2026 (Working Version)
 on:
   workflow_dispatch:
 
@@ -12,13 +12,13 @@ jobs:
       - name: Install System Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq curl wget openssl coreutils
+          sudo apt-get install -y jq curl wget openssl
 
-      - name: Install Xray-core (Root Direct)
+      - name: Install Xray-core
         run: |
           curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install -u root
 
-      - name: Install Cloudflared Binary (Anti-502 Fix)
+      - name: Install Cloudflared
         run: |
           sudo wget -q -O /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           sudo chmod +x /usr/local/bin/cloudflared
@@ -28,15 +28,9 @@ jobs:
         id: vars
         run: |
           UUID=$(/usr/local/bin/xray uuid)
-          KEYS=$(/usr/local/bin/xray x25519)
-          PRIVATE_KEY=$(echo $KEYS | awk '{print $3}')
-          PUBLIC_KEY=$(echo $KEYS | awk '{print $6}')
-          SHORT_ID=$(openssl rand -hex 8)
-          
           echo "uuid=$UUID" >> $GITHUB_OUTPUT
-          echo "pub=$PUBLIC_KEY" >> $GITHUB_OUTPUT
-          echo "sid=$SHORT_ID" >> $GITHUB_OUTPUT
           
+          # کانفیگ VLESS-WebSocket (سازگار با Cloudflare Tunnel)
           cat <<EOF > config.json
           {
             "log": { "loglevel": "warning" },
@@ -46,77 +40,90 @@ jobs:
               "settings": {
                 "clients": [{
                   "id": "$UUID",
-                  "flow": "xtls-rprx-vision"
+                  "level": 0
                 }],
                 "decryption": "none"
               },
               "streamSettings": {
-                "network": "tcp",
-                "security": "reality",
-                "realitySettings": {
-                  "show": false,
-                  "dest": "www.google.com:443",
-                  "xver": 0,
-                  "serverNames": ["www.google.com", "dl.google.com"],
-                  "privateKey": "$PRIVATE_KEY",
-                  "shortIds": ["$SHORT_ID"]
+                "network": "ws",
+                "wsSettings": {
+                  "path": "/vless"
                 }
               }
             }],
-            "outbounds": [{ "protocol": "freedom" }]
+            "outbounds": [{ 
+              "protocol": "freedom",
+              "settings": {}
+            }]
           }
           EOF
+          
+          cat config.json
 
       - name: Start Xray Server
         run: |
           sudo /usr/local/bin/xray run -c config.json &
-          sleep 3
+          sleep 5
+          echo "Xray started, checking process..."
+          ps aux | grep xray
 
-      - name: Establish Resilient Argo Tunnel
+      - name: Establish Argo Tunnel
         id: tunnel
         run: |
           sudo /usr/local/bin/cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
           
-          echo "Waiting for Cloudflare to assign a URL..."
-          for i in {1..30}; do
-            TUNNEL_URL=$(grep -o 'https://.*\.trycloudflare.com' cf.log | head -n 1 | sed 's/https:\/\///')
+          echo "Waiting for Cloudflare URL..."
+          TUNNEL_URL=""
+          for i in {1..40}; do
+            TUNNEL_URL=$(grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' cf.log | head -n 1)
             if [ -n "$TUNNEL_URL" ]; then
-              echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
-              echo "Connection Established: $TUNNEL_URL"
+              CLEAN_URL=$(echo $TUNNEL_URL | sed 's/https:\/\///')
+              echo "url=$CLEAN_URL" >> $GITHUB_OUTPUT
+              echo "✅ Tunnel Active: $TUNNEL_URL"
               break
             fi
             sleep 1
           done
 
           if [ -z "$TUNNEL_URL" ]; then
-            echo "Error: Tunnel failed to start. Logs:"
+            echo "❌ Tunnel failed! Logs:"
             cat cf.log
             exit 1
           fi
 
-      - name: Output Connection Details
+      - name: Output VLESS Link
         run: |
           UUID="${{ steps.vars.outputs.uuid }}"
           DOMAIN="${{ steps.tunnel.outputs.url }}"
-          PUB_KEY="${{ steps.vars.outputs.pub }}"
-          SHORT_ID="${{ steps.vars.outputs.sid }}"
           
-          VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=reality&sni=www.google.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp&headerType=none&flow=xtls-rprx-vision#GitHub-Runner-2026"
+          # لینک VLESS-WebSocket-TLS
+          VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=tls&sni=$DOMAIN&alpn=http/1.1&fp=chrome&type=ws&host=$DOMAIN&path=%2Fvless#GitHub_VPN_2026"
           
           echo "========================================================="
-          echo "✅ کانفیگ شما آماده است! لینک زیر را کپی کنید:"
+          echo "✅ VPN آماده است!"
           echo ""
+          echo "📋 لینک کانفیگ:"
           echo "$VLESS_LINK"
           echo ""
-          echo "⚠️ نکته بسیار مهم برای ایران:"
-          echo "1. در اپلیکیشن Nekobox یا v2rayNG قابلیت Fragment را روشن کنید."
-          echo "2. تنظیمات Fragment: Packets: tlshello | Length: 100-200 | Interval: 10-20"
+          echo "🔧 تنظیمات دستی (اگر لینک کار نکرد):"
+          echo "Address: $DOMAIN"
+          echo "Port: 443"
+          echo "UUID: $UUID"
+          echo "Network: WebSocket"
+          echo "Path: /vless"
+          echo "TLS: ON"
+          echo "SNI: $DOMAIN"
+          echo ""
+          echo "📱 اپلیکیشن‌های پیشنهادی:"
+          echo "- Android: v2rayNG, NekoBox"
+          echo "- iOS: Shadowrocket, Streisand"
+          echo "- Windows: v2rayN, Nekoray"
           echo "========================================================="
 
-      - name: Keep Connection Alive
+      - name: Keep Alive (6 hours)
         run: |
-          echo "VPN فعال است. تا 6 ساعت می‌توانید از این لینک استفاده کنید."
-          while true; do
+          echo "🟢 VPN فعال شد - تا 6 ساعت قابل استفاده است"
+          for i in {1..72}; do
             sleep 300
-            echo "Heartbeat: VPN is still running..."
+            echo "⏱️ Uptime: $((i*5)) minutes"
           done
