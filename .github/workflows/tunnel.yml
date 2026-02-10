@@ -16,12 +16,10 @@ jobs:
 
       - name: Install Xray-core (Root Direct)
         run: |
-          # نصب مستقیم هسته Xray با دسترسی روت
           curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install -u root
 
       - name: Install Cloudflared Binary (Anti-502 Fix)
         run: |
-          # دانلود مستقیم باینری به جای پکیج deb برای پایداری بیشتر
           sudo wget -q -O /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           sudo chmod +x /usr/local/bin/cloudflared
           cloudflared --version
@@ -39,11 +37,17 @@ jobs:
           echo "pub=$PUBLIC_KEY" >> $GITHUB_OUTPUT
           echo "sid=$SHORT_ID" >> $GITHUB_OUTPUT
           
-          # ساخت فایل کانفیگ برای پورت 8080 (هدایت تانتل آرگو به این پورت)
           cat <<EOF > config.json
           {
             "log": { "loglevel": "warning" },
-            "inbounds":,
+            "inbounds": [{
+              "port": 8080,
+              "protocol": "vless",
+              "settings": {
+                "clients": [{
+                  "id": "$UUID",
+                  "flow": "xtls-rprx-vision"
+                }],
                 "decryption": "none"
               },
               "streamSettings": {
@@ -55,7 +59,7 @@ jobs:
                   "xver": 0,
                   "serverNames": ["www.google.com", "dl.google.com"],
                   "privateKey": "$PRIVATE_KEY",
-                  "shortIds":
+                  "shortIds": ["$SHORT_ID"]
                 }
               }
             }],
@@ -66,18 +70,17 @@ jobs:
       - name: Start Xray Server
         run: |
           sudo /usr/local/bin/xray run -c config.json &
+          sleep 3
 
       - name: Establish Resilient Argo Tunnel
         id: tunnel
         run: |
-          # اجرای تونل آرگو با خروجی لاگ برای استخراج URL
           sudo /usr/local/bin/cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
           
           echo "Waiting for Cloudflare to assign a URL..."
-          # تلاش برای پیدا کردن URL در لاگ تا 30 ثانیه
           for i in {1..30}; do
             TUNNEL_URL=$(grep -o 'https://.*\.trycloudflare.com' cf.log | head -n 1 | sed 's/https:\/\///')
-            if; then
+            if [ -n "$TUNNEL_URL" ]; then
               echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
               echo "Connection Established: $TUNNEL_URL"
               break
@@ -85,7 +88,7 @@ jobs:
             sleep 1
           done
 
-          if; then
+          if [ -z "$TUNNEL_URL" ]; then
             echo "Error: Tunnel failed to start. Logs:"
             cat cf.log
             exit 1
@@ -98,7 +101,6 @@ jobs:
           PUB_KEY="${{ steps.vars.outputs.pub }}"
           SHORT_ID="${{ steps.vars.outputs.sid }}"
           
-          # ساخت لینک VLESS با متد Vision برای عبور از DPI ایرانسل و همراه اول
           VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=reality&sni=www.google.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp&headerType=none&flow=xtls-rprx-vision#GitHub-Runner-2026"
           
           echo "========================================================="
