@@ -1,4 +1,4 @@
-name: Ultimate Ephemeral VPN 2026 (Fixed & Sudo)
+name: Ultimate Ephemeral VPN 2026 (Resilient Mode)
 on:
   workflow_dispatch:
 
@@ -9,28 +9,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Tools
+      - name: Install System Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq curl wget openssl
+          sudo apt-get install -y jq curl wget openssl coreutils
 
-      - name: Install Xray-core
+      - name: Install Xray-core (Root Direct)
         run: |
-          # نصب هسته اصلی با دسترسی روت
+          # نصب مستقیم هسته Xray با دسترسی روت
           curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install -u root
 
-      - name: Install Cloudflared (Fixed Filename)
+      - name: Install Cloudflared Binary (Anti-502 Fix)
         run: |
-          # دانلود با نام مشخص برای جلوگیری از خطای پیدا نشدن فایل
-          wget -O cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-          sudo dpkg -i cloudflared.deb
+          # دانلود مستقیم باینری به جای پکیج deb برای پایداری بیشتر
+          sudo wget -q -O /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          sudo chmod +x /usr/local/bin/cloudflared
+          cloudflared --version
 
-      - name: Generate Reality Keys & Config
+      - name: Generate Config & Keys
         id: vars
         run: |
-          # تولید کلیدها و شناسه با sudo
-          UUID=$(sudo /usr/local/bin/xray uuid)
-          KEYS=$(sudo /usr/local/bin/xray x25519)
+          UUID=$(/usr/local/bin/xray uuid)
+          KEYS=$(/usr/local/bin/xray x25519)
           PRIVATE_KEY=$(echo $KEYS | awk '{print $3}')
           PUBLIC_KEY=$(echo $KEYS | awk '{print $6}')
           SHORT_ID=$(openssl rand -hex 8)
@@ -39,8 +39,8 @@ jobs:
           echo "pub=$PUBLIC_KEY" >> $GITHUB_OUTPUT
           echo "sid=$SHORT_ID" >> $GITHUB_OUTPUT
           
-          # ایجاد فایل کانفیگ سرور
-          sudo cat <<EOF > config.json
+          # ساخت فایل کانفیگ برای پورت 8080 (هدایت تانتل آرگو به این پورت)
+          cat <<EOF > config.json
           {
             "log": { "loglevel": "warning" },
             "inbounds":,
@@ -67,50 +67,54 @@ jobs:
         run: |
           sudo /usr/local/bin/xray run -c config.json &
 
-      - name: Establish Argo Tunnel
+      - name: Establish Resilient Argo Tunnel
         id: tunnel
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          # اجرای تانل با sudo و هدایت به پورت xray
-          sudo cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
+          # اجرای تونل آرگو با خروجی لاگ برای استخراج URL
+          sudo /usr/local/bin/cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
           
-          echo "در حال دریافت آدرس از کلودفلر..."
-          sleep 25
-          
-          # استخراج آدرس موقت از فایل لاگ
-          TUNNEL_URL=$(grep -o 'https://.*\.trycloudflare.com' cf.log | head -n 1 | sed 's/https:\/\///')
-          
+          echo "Waiting for Cloudflare to assign a URL..."
+          # تلاش برای پیدا کردن URL در لاگ تا 30 ثانیه
+          for i in {1..30}; do
+            TUNNEL_URL=$(grep -o 'https://.*\.trycloudflare.com' cf.log | head -n 1 | sed 's/https:\/\///')
+            if; then
+              echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
+              echo "Connection Established: $TUNNEL_URL"
+              break
+            fi
+            sleep 1
+          done
+
           if; then
-            echo "خطا در برقراری تانل! لاگ نهایی:"
+            echo "Error: Tunnel failed to start. Logs:"
             cat cf.log
             exit 1
           fi
-          
-          echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
 
-      - name: Final Configuration Output
+      - name: Output Connection Details
         run: |
           UUID="${{ steps.vars.outputs.uuid }}"
           DOMAIN="${{ steps.tunnel.outputs.url }}"
           PUB_KEY="${{ steps.vars.outputs.pub }}"
           SHORT_ID="${{ steps.vars.outputs.sid }}"
           
-          # لینک VLESS نهایی با پارامترهای ضد فیلترینگ
-          VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=reality&sni=www.google.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp&headerType=none&flow=xtls-rprx-vision#Runner-VPN-$(date +%H%M)"
+          # ساخت لینک VLESS با متد Vision برای عبور از DPI ایرانسل و همراه اول
+          VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=reality&sni=www.google.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp&headerType=none&flow=xtls-rprx-vision#GitHub-Runner-2026"
           
           echo "========================================================="
-          echo "لینک اتصال شما (در v2rayNG یا Nekobox کپی کنید):"
+          echo "✅ کانفیگ شما آماده است! لینک زیر را کپی کنید:"
           echo ""
           echo "$VLESS_LINK"
           echo ""
-          echo "نکته مهم: در تنظیمات کلاینت، قابلیت Fragmentation را فعال کنید."
+          echo "⚠️ نکته بسیار مهم برای ایران:"
+          echo "1. در اپلیکیشن Nekobox یا v2rayNG قابلیت Fragment را روشن کنید."
+          echo "2. تنظیمات Fragment: Packets: tlshello | Length: 100-200 | Interval: 10-20"
           echo "========================================================="
 
-      - name: Keep Runner Alive
+      - name: Keep Connection Alive
         run: |
-          echo "سرور به مدت ۶ ساعت فعال است."
-          for i in {1..72}; do
-            echo "Heartbeat $i: Connection Active..."
+          echo "VPN فعال است. تا 6 ساعت می‌توانید از این لینک استفاده کنید."
+          while true; do
             sleep 300
+            echo "Heartbeat: VPN is still running..."
           done
