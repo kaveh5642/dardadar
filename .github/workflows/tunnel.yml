@@ -1,0 +1,107 @@
+name: Ultimate Ephemeral VPN 2026
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Install Xray-core
+        run: |
+          bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root
+
+      - name: Install Cloudflared
+        run: |
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Generate Reality Keys & Config
+        id: vars
+        run: |
+          UUID=$(xray uuid)
+          KEYS=$(xray x25519)
+          PRIVATE_KEY=$(echo $KEYS | awk '{print $3}')
+          PUBLIC_KEY=$(echo $KEYS | awk '{print $6}')
+          SHORT_ID=$(openssl rand -hex 8)
+          
+          echo "uuid=$UUID" >> $GITHUB_OUTPUT
+          echo "pub=$PUBLIC_KEY" >> $GITHUB_OUTPUT
+          echo "sid=$SHORT_ID" >> $GITHUB_OUTPUT
+          
+          cat <<EOF > config.json
+          {
+            "log": { "loglevel": "warning" },
+            "inbounds":,
+                "decryption": "none"
+              },
+              "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                  "show": false,
+                  "dest": "www.google.com:443",
+                  "xver": 0,
+                  "serverNames": ["www.google.com", "dl.google.com"],
+                  "privateKey": "$PRIVATE_KEY",
+                  "shortIds":
+                }
+              }
+            }],
+            "outbounds": [{ "protocol": "freedom" }]
+          }
+          EOF
+
+      - name: Start Xray Server
+        run: |
+          sudo xray run -c config.json &
+
+      - name: Start Cloudflare Tunnel & Extract URL
+        id: tunnel
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # اجرای تونل و کپچر کردن لاگ برای استخراج URL
+          cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
+          
+          echo "Waiting for Tunnel URL..."
+          sleep 15
+          
+          # استخراج آدرس رندم تولید شده توسط TryCloudflare
+          TUNNEL_URL=$(grep -o 'https://.*\.trycloudflare.com' cf.log | head -n 1 | sed 's/https:\/\///')
+          echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
+          echo "Final Domain: $TUNNEL_URL"
+
+      - name: Final VPN Config
+        run: |
+          UUID="${{ steps.vars.outputs.uuid }}"
+          DOMAIN="${{ steps.tunnel.outputs.url }}"
+          PUB_KEY="${{ steps.vars.outputs.pub }}"
+          SHORT_ID="${{ steps.vars.outputs.sid }}"
+          
+          # ساخت لینک نهایی VLESS با تنظیمات ضد DPI سال 2026
+          # توجه: پارامتر fragment برای عبور از فیلترینگ شدید در اپلیکیشن کلاینت استفاده می‌شود
+          VLESS_LINK="vless://$UUID@$DOMAIN:443?encryption=none&security=reality&sni=www.google.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp&headerType=none&flow=xtls-rprx-vision#GitHub-2026-$(date +%H%M)"
+          
+          echo "========================================================="
+          echo "کانفیگ شما آماده است. آن را کپی کرده و در v2rayNG یا Nekobox وارد کنید:"
+          echo ""
+          echo "$VLESS_LINK"
+          echo ""
+          echo "نکته: در تنظیمات کلاینت (Nekobox)، بخش Fragmentation را فعال کنید."
+          echo "========================================================="
+
+      - name: Keep Runner Alive
+        run: |
+          echo "سرور به مدت 6 ساعت فعال خواهد بود..."
+          for i in {1..72}; do
+            echo "Heartbeat $i: Connection Active"
+            sleep 300
+          done
