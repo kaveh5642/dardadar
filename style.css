@@ -1,0 +1,523 @@
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: bold;
+  src: url("../fonts/eot/iranyekanwebbold.eot");
+  src: url("../fonts/eot/iranyekanwebbold.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebbold.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebbold.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanwebbold.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: 100;
+  src: url("../fonts/eot/iranyekanwebthin.eot");
+  src: url("../fonts/eot/iranyekanwebthin.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebthin.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebthin.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanwebthin.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: 300;
+  src: url("../fonts/eot/iranyekanweblight.eot");
+  src: url("../fonts/eot/iranyekanweblight.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanweblight.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanweblight.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanweblight.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: normal;
+  src: url("../fonts/eot/iranyekanwebregular.eot");
+  src: url("../fonts/eot/iranyekanwebregular.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebregular.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebregular.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanwebregular.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: 500;
+  src: url("../fonts/eot/iranyekanwebmedium.eot");
+  src: url("../fonts/eot/iranyekanwebmedium.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebmedium.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebmedium.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanwebmedium.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: 800;
+  src: url("../fonts/eot/iranyekanwebextrabold.eot");
+  src: url("../fonts/eot/iranyekanwebextrabold.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebextrabold.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebextrabold.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanwebextrabold.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: 850;
+  src: url("../fonts/eot/iranyekanwebblack.eot");
+  src: url("../fonts/eot/iranyekanwebblack.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebblack.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebblack.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/ url("../fonts/ttf/iranyekanwebblack.ttf")
+      format("truetype");
+}
+
+@font-face {
+  font-family: iranyekan;
+  font-style: normal;
+  font-weight: 900;
+  src: url("../fonts/eot/iranyekanwebextrablack.eot");
+  src: url("../fonts/eot/iranyekanwebextrablack.eot?#iefix")
+      format("embedded-opentype"),
+    /* IE6-8 */ url("../fonts/woff/iranyekanwebextrablack.woff") format("woff"),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+      url("../fonts/woff2/iranyekanwebextrablack.woff2") format("woff2"),
+    /* FF39+,Chrome36+, Opera24+*/
+      url("../fonts/ttf/iranyekanwebextrablack.ttf") format("truetype");
+}
+
+body {
+  font-family: "iranyekan", sans-serif;
+}
+
+.pt-64 {
+  padding-top: 64px;
+}
+
+.pb-64 {
+  padding-bottom: 64px;
+}
+
+.mt-64 {
+  margin-top: 64px;
+}
+
+.mb-64 {
+  margin-bottom: 64px;
+}
+
+.hero-section {
+  min-height: 600px;
+}
+
+h1 {
+  font-weight: 800;
+  font-size: 40px;
+  color: #1a1a1a;
+}
+
+h2 {
+  color: #1a1a1a;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+h4 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+a {
+  text-decoration: none;
+}
+
+.button-accept {
+  padding: 10px 32px;
+  border-radius: 8px;
+  background-color: #ce0b0f;
+  width: max-content;
+  color: #fff;
+}
+
+.description {
+  font-weight: 400;
+  font-size: 16px;
+  color: #595959;
+}
+
+.video-section .row {
+  display: flex;
+  align-items: center;
+}
+
+/* WHO-USED-SECTION */
+.who-used-section {
+  background-color: #f2f2f2;
+}
+
+.who-used-section .description {
+  font-weight: 500;
+  font-size: 20px;
+  color: #525252;
+  max-width: 600px;
+  margin: 0 auto;
+  margin-top: 20px;
+  margin-bottom: 50px;
+}
+
+.accordion-button::after {
+  display: none;
+}
+
+.custom-acc-btn {
+  justify-content: space-between;
+}
+
+.circle-icon {
+  width: 18px;
+  height: 18px;
+  background: #000;
+  border-radius: 50%;
+  position: relative;
+}
+
+.circle-icon:before,
+.circle-icon:after {
+  content: "";
+  position: absolute;
+  background: #fff;
+}
+
+.circle-icon:before {
+  width: 8px;
+  height: 2px;
+  top: 8px;
+  left: 5px;
+}
+
+.circle-icon:after {
+  width: 2px;
+  height: 8px;
+  top: 5px;
+  left: 8px;
+}
+
+.accordion-item {
+  margin-bottom: 16px;
+}
+
+.accordion-item h2 button {
+  font-weight: 700;
+  font-size: 20px;
+  color: #333333;
+  border-radius: 8px;
+  background-color: #fff;
+  border: unset;
+  box-shadow: unset;
+  outline: unset;
+}
+
+.accordion-item h2 button:focus-visible,
+.accordion-item h2 button:focus-within {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.accordion-button:not(.collapsed) {
+  background-color: unset;
+  box-shadow: unset;
+}
+.accordion-button:not(.collapsed) .circle-icon:after {
+  display: none;
+}
+
+.img-wrapper {
+  position: relative;
+}
+
+.acc-img {
+  width: 100%;
+  display: none;
+}
+
+.acc-img.active {
+  display: block;
+}
+
+/****/
+.feature-section {
+  background-color: #f2f2f2;
+}
+
+.feature-section .content {
+  padding: 32px 64px;
+  border-radius: 16px;
+  background-color: #fff;
+}
+
+.feature-section .content .item {
+  display: flex;
+  gap: 16px;
+  margin: 16px;
+}
+
+.product-list-section {
+  background-color: #f2f2f2;
+}
+
+.swiper-slide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.product-list-section .swiper,
+.customer-section .swiper,
+.blog-section .swiper {
+  padding-bottom: 60px;
+}
+.product-list-section img {
+  width: 100%;
+}
+.product-list-section h4 {
+  font-size: 16px;
+  text-align: center;
+}
+
+.customer-section {
+  background-color: #f2f2f2;
+}
+.customer-section .card {
+  border-radius: 8px;
+  padding: 32px;
+  border: unset;
+  min-height: 265px;
+}
+.customer-section .card .header {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.customer-section .card .header .item {
+  font-size: 14px;
+  font-weight: 400;
+  color: #333333;
+}
+
+.blog-section {
+  background-color: #f2f2f2;
+}
+
+.blog-section .card {
+  border: unset;
+  border-radius: 8px;
+}
+
+.blog-section .card .image img {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+}
+
+.blog-section .card .info {
+  padding: 32px 12px;
+}
+
+.blog-section .card .info h4 {
+  min-height: 70px;
+  line-height: 32px;
+}
+
+.blog-section .card .info .item {
+  font-size: 16px;
+  font-weight: 400;
+  color: #595959;
+}
+
+.blog-section .card .info .more {
+  margin-top: 40px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.blogSwiper .swiper-slide {
+  width: auto; /* کارت‌ها به اندازه محتوا */
+}
+
+.blogSwiper .card {
+  display: block;
+  height: 100%;
+}
+
+.customerSwiper .swiper-slide {
+  width: auto; /* کارت‌ها اندازه محتوا */
+}
+
+.customerSwiper .card {
+  display: block;
+  height: 100%;
+}
+
+.hero-section {
+  position: relative;
+}
+.hero-section img {
+  width: 100%;
+}
+.hero-section .info {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  padding: 100px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-section .sub-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #585858;
+  margin-top: 5px;
+}
+
+.hero-section .description {
+  max-width: 400px;
+  margin-top: 8px;
+}
+
+.hero-section .button-accept {
+  margin-top: 36px;
+}
+
+.wrapper-slider-logo {
+  position: relative;
+  width: 100%;
+  margin-top: 48px;
+}
+
+.wrapper-slider-logo .line {
+  position: absolute;
+  width: 10px;
+  height: 100%;
+  background-color: #ffffff;
+  z-index: 555;
+  right: -6px;
+}
+
+.logoSwiper {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* لایه سمت چپ */
+.logoSwiper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px; /* میزان محو شدن */
+  height: 100%;
+  background: linear-gradient(to right, white 0%, rgba(255, 255, 255, 0) 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* لایه سمت راست */
+.logoSwiper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 100%;
+  background: linear-gradient(to left, white 0%, rgba(255, 255, 255, 0) 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.logoSwiper1,
+.logoSwiper2 {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .hero-section {
+    display: flex;
+    flex-direction: column-reverse;
+    min-height: auto;
+  }
+
+  .hero-section .info {
+    position: relative;
+    padding: 10px;
+    width: 100%;
+    margin-top: 54px;
+  }
+  .hero-section .info .button-accept {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .video-section .row {
+    flex-direction: column-reverse;
+  }
+
+  .video-section .p-5 {
+    padding: 16px !important;
+  }
+
+  .logoSwiper {
+    display: none;
+  }
+  .logoSwiper1,
+  .logoSwiper2 {
+    display: block;
+  }
+
+  .who-used-section .content > .row {
+    flex-direction: column-reverse;
+  }
+
+  .feature-section .content {
+    padding: 0;
+  }
+
+  .feature-section .content .item {
+    flex-direction: column;
+  }
+
+  .customerSwiper .swiper-slide .card {
+    min-height: 350px;
+  }
+}
