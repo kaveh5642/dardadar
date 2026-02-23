@@ -1,0 +1,12 @@
+{
+  "outbounds": [
+    {
+      "type": "ssh",
+      "tag": "ssh-1",
+      "server": "2.tcp.ngrok.io",
+      "server_port": 10244,
+      "user": "shahan_user",
+      "password": "pass1234"
+    }
+  ]
+}
